@@ -1,3 +1,8 @@
+"""
+Filename: Router.py
+Author:   Damon Mazurek
+"""
+
 from socket import *
 import threading
 import time
@@ -5,7 +10,7 @@ import sys
 import string
 import pickle
 
-#Global Variables
+# Const Global Variables
 INFINITY = 999
 NO_PARENT = -1
 ALPHABET = list(string.ascii_uppercase)
@@ -14,26 +19,51 @@ SERVERNAME = "localhost"
 router_labels = []
 
 class Router:
+    """
+    A class to simulate a router in a network.
+
+    This class implements the functionality of a router, including sending and receiving
+    link state information, calculating shortest paths using Dijkstra's algorithm, and
+    maintaining a forwarding table.
+    """
     def __init__(self, router_id, router_port, config_file):
+        """
+        Initialize the Router object.
+
+        Args:
+            router_id (int): The ID of the router.
+            router_port (int): The port number the router will use.
+            config_file (str): The path to the configuration file.
+        """
+        # Sockets
+        self.sender_socket = socket(AF_INET, SOCK_DGRAM) # Sender Socket for a router
+        self.receiver_socket = socket(AF_INET, SOCK_DGRAM) # Reciever Socket for a router
+        
+        # Router info
         self.router_id = router_id
         self.router_port = router_port
         self.config_file = config_file
+        
+        # Neighbor router info
         self.neighbors_info = {}  # Store neighbor information {neighbor_id: (cost, neighbor_port)}
-        self.neighbors_data = {} # Store recieved neighbor data from receive_and_broadcast
+        self.neighbors_data = {}  # Store recieved neighbor data from receive_and_broadcast method
+        self.neighbor_ports = []
         self.link_state = []  # Link state vector
         self.forwarding_table = {}  # Forwarding table {destination_id: next_hop_label}
-        self.sender_socket = socket(AF_INET, SOCK_DGRAM) # Sender Socket for a router
-        self.receiver_socket = socket(AF_INET, SOCK_DGRAM) # Sender Socket for a router
+        
         self.terminate_threads = False
-        self.neighbor_ports = []
+        
         self.received_all = False
         self.shortest_distance = []
         self.prev_node = []
         self.path = []
-        self.prev_node = []
         self.next_node = []
 
     def load_configuration(self):
+        """
+        Loads information about router from config file by reading the configuration 
+        file and initializes the router's neighbors and link state information.
+        """
         try:
             #Try to open config file. If it has stupid formatting where its last line is just a '\n' (LIKE config-A.txt), get rid of it
             with open(self.config_file, 'r') as file:
@@ -69,20 +99,27 @@ class Router:
   
     def get_node_amount(self):
         """
-        Return the number of nodes in config file
+        Return the number of router nodes for network specified in config file
+
+        Returns:
+            int: number of nodes 
         """
+        
+        # Try to open file
         try:
             with open(self.config_file, 'r') as file:
                 lines = file.readlines()
                 return int(lines[0])
             
+        # Raise error if file cannot open
         except OSError as e:
             print(e)
             sys.exit()
     
     def send_link_state_info(self):
         """
-        Send link state information to all neighbors
+        Send link state information to all neighbors. Runs in a separate thread and continuously 
+        sends the router's link state information to all neighbors.
         """
         id = -1
         
@@ -111,6 +148,11 @@ class Router:
             time.sleep(1)
             
     def receive_and_broadcast(self):
+        """
+        Receive link state information from neighbors and broadcast it. Runs in a separate thread 
+        and continuously recieves link state information from neighbors and broadcasting it to other
+        neighbors.
+        """
         # Implement receiving link state information from one neighbor
         while self.terminate_threads is not True:
             
@@ -151,6 +193,11 @@ class Router:
             
             
     def dijkstra_algorithm(self):
+        """
+        Implement Dijkstra's algorithm to calculate shortest paths. Runs in a separate thread, 
+        periodically calculating the shortest paths to all other nodes in the network using the 
+        collected link state information.
+        """
         while self.terminate_threads is not True:
             node_data = []
             self.path = []
@@ -204,6 +251,13 @@ class Router:
             time.sleep(10) 
 
     def print_result(self, shortest_distances, parents):
+        """
+        Print the result of Dijkstra's algorithm.
+
+        Args:
+            shortest_distances (list): List of shortest distances to each node.
+            parents (list): List of parent nodes in the shortest path tree.
+        """
         print("Desitantion_Routerid \t Distance \t Previous_node_id")
         self.prev_node = []
         self.next_node = []
@@ -225,6 +279,14 @@ class Router:
         
 
     def get_path(self, current_node, parents):
+        """
+        Recursively construct the path from the source to the current node.
+
+        Args:
+            current_node (int): The current node being processed.
+            parents (list): List of parent nodes in the shortest path tree.
+        """
+        
         # Base Case: If the current vertex is the source vertex
         if current_node == NO_PARENT:
             return
@@ -232,13 +294,22 @@ class Router:
         self.get_path(parents[current_node], parents)
         
     def print_forwarding_table(self):
+        """
+        Prints the forwarding table for the router.
+        """
+        
         print("Desitantion_Routerid \t Next_hop_routerlabel")
+        
         for i in range(len(router_labels)):
+            # Do not print this router ID
             if i == self.router_id:
                 continue
             print(f"{i}\t\t\t {router_labels[self.next_node[i]]}")
 
     def run(self):
+        """
+        Run the router simulation.
+        """
         self.load_configuration()  # Load values from config file in object
         self.receiver_socket.bind(("", self.router_port))  # Bind socket to localhost and port from command line args
     
@@ -257,27 +328,34 @@ class Router:
             receive_and_broadcast_thread.join()
             dijkstra_algorithm_thread.join()
     
+        # Kill threads on keyboard interrupt
         except KeyboardInterrupt:
             self.terminate_threads = True
             send_link_state_thread.join()
             receive_and_broadcast_thread.join()
             dijkstra_algorithm_thread.join()
     
+        # Close sockets
         finally:
-            # Close sockets and perform any necessary cleanup
             self.sender_socket.close()
             self.receiver_socket.close()
             print("Sockets closed.")  
    
 
 if __name__ == "__main__":
+    
+    # Get args from CLI
     router_id = int(sys.argv[1])
     router_port = int(sys.argv[2])
     config_file = sys.argv[3]
+    
+    # Create new router
     router = Router(router_id, router_port, config_file)
     
+    # Add uppercase letter as label for each router
     for i in range(router.get_node_amount()):
         router_labels.append(ALPHABET[i])
     
+    # Run router
     router.run()
     
