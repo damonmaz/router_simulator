@@ -72,19 +72,15 @@ class Router:
                 if lines[-1].strip() == '':
                     lines = lines[:-1]
             #Initialize self.neighbors and self.link_state
-            # print(lines)
             for line in lines[1:]:
                 parts = line.strip().split()
-                # print(parts)
                 neighbor_label, neighbor_id, cost, neighbor_port = parts
                 neighbor_id, cost, neighbor_port = map(int, [neighbor_id, cost, neighbor_port])
                 self.neighbors_info[neighbor_id] = [cost, neighbor_port] #Set value of self's neighbors
             
-            # print(self.neighbors)
             # Initialize every link state valuje to 999 except for self, which is set to 0 
             self.link_state = [INFINITY] * total_nodes
             self.link_state[self.router_id] = 0
-            # print(self.link_state)
             
             # Initialize correct cost for neighbors into link_state 
             for i in range(total_nodes):
@@ -92,7 +88,6 @@ class Router:
                     if i == j:
                         self.link_state[i] = self.neighbors_info[j][0]
 
-            # print(self.link_state)
         except OSError as e:
             print(e)
             sys.exit()
@@ -140,10 +135,8 @@ class Router:
             # Pickle link_state and send to each neighbor's port
             for port in self.neighbor_ports:
                 new_link_state = [id, self.link_state]
-                # print(f"new_link_state: {new_link_state}")
                 data = pickle.dumps(new_link_state)
                 self.sender_socket.sendto(data, (SERVERNAME, port))
-                # print(f"SENT link_state TO PORT {port}")
                 
             time.sleep(1)
             
@@ -160,7 +153,6 @@ class Router:
             received_data = pickle.loads(data)
             if received_data == '':
                 print("RECEIVED NOTHING")
-            # print(f"received_data: {received_data}")
             
             flag = False
             c = 0 #Counter
@@ -169,24 +161,18 @@ class Router:
             for i in range(len(router_labels)):
                 if i in self.neighbors_data.keys():
                     c += 1
-                    # print(f"c: {c}")
                 if c == len(router_labels):
                     flag = True
-                    # print("MADE FLAG TRUE")
             
             # Record received data in self.neighbors_data
             self.neighbors_data[received_data[0]] = received_data[1]
-            # print(f"RECEIVED link_state FROM PORT {addr[1]}")
-            # print(f"self.neighbors_data: {self.neighbors_data}")
             
             #Sends receieved data to neighbors
             for port in self.neighbor_ports:
                 data = pickle.dumps(received_data)
                 self.sender_socket.sendto(data, (SERVERNAME, port))
-                # print(f"SENT link_state TO PORT {port}")
                 
             if flag == True:
-                # print("FLAG IS TRUE")
                 self.received_all = True
                 
             time.sleep(0.1) # SLeep for 0.1 sec so this function doesnt heat my laptop to 80C
@@ -202,7 +188,6 @@ class Router:
             node_data = []
             self.path = []
             if self.received_all:
-                # print(self.neighbors_data)
                 
                 # Add all the data from self.neighbors_data to node_data (in order)
                 for i in range(len(router_labels)):
@@ -229,7 +214,6 @@ class Router:
                     for j in range(nodes):
                         if not added[j] and shortest_distances[j] < shortest_distance:
                             nearest_node = j
-                            # print(nearest_node)
                             shortest_distance = shortest_distances[j]
 
                     added[nearest_node] = True 
@@ -241,6 +225,7 @@ class Router:
                             parents[k] = nearest_node
                             shortest_distances[k] = shortest_distance + edge_distance
 
+                # Print router data
                 print("\n")
                 self.print_result(shortest_distances, parents)
                 print()
@@ -264,7 +249,6 @@ class Router:
         for i in range(len(shortest_distances)):
 
             self.get_path(i, parents)
-            # print(f"self.path: {self.path}")
             if len(self.path) >= 2:
                 self.prev_node.append(self.path[1])
                 self.next_node.append(self.path[-2])
@@ -272,8 +256,6 @@ class Router:
                 self.prev_node.append(self.path[0])
                 self.next_node.append(self.path[0])
             
-            # print(f"i: {i}\tself.prev_node: {self.prev_node}\tself.next_node: {self.next_node}")
-
             print(f"{i}\t\t\t {shortest_distances[i]}\t\t {self.prev_node[i]}")
             self.path = []
         
@@ -301,7 +283,7 @@ class Router:
         print("Desitantion_Routerid \t Next_hop_routerlabel")
         
         for i in range(len(router_labels)):
-            # Do not print this router ID
+            # Skip self router ID
             if i == self.router_id:
                 continue
             print(f"{i}\t\t\t {router_labels[self.next_node[i]]}")
